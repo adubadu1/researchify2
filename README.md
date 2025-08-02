@@ -23,7 +23,11 @@ A Streamlit web app that uses OpenAI to help you analyze your dataset. Great for
 
 main/
 ├── app.py # Streamlit frontend interface
+
 ├── researcher.py # Handles OpenAI API and dataset search logic
+
 ├── requirements.txt # Python dependencies (pip install -r requirements.txt)
+
 ├── .env # API keys (not included in Git)
+
 └── README.md # Project documentation
