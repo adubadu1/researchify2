@@ -1,209 +1,98 @@
+import streamlit as st
 import os
-import re
-import json
-import traceback
 import pandas as pd
-import numpy as np
-from dotenv import load_dotenv
-from openai import OpenAI
-from thefuzz import process
+import requests
+from io import StringIO
+from researcher import GenericLLMCodeExecutor
 
-load_dotenv()
+st.set_page_config(page_title="Agentic Data Researcher", layout="centered")
+st.title("🔍 Agentic Data Researcher")
 
-def clean_code(code: str) -> str:
-    """
-    Remove Markdown triple backticks and optional 'python' language tag
-    from the start and end of LLM-generated code snippets.
-    """
-    # Remove opening triple backticks with optional 'python' and optional newline
-    code = re.sub(r"^```(?:python)?\n?", "", code, flags=re.IGNORECASE)
-    # Remove trailing triple backticks, possibly preceded by a newline
-    code = re.sub(r"\n?```$", "", code)
-    return code.strip()
+st.markdown("Upload a dataset or provide a dataset URL. Then, ask a question you'd like to answer from the data.")
 
-def find_closest_value(target: str, choices: pd.Series, threshold: int = 70) -> str:
-    """
-    Find closest string in 'choices' to 'target' using fuzzy matching.
-    Return best match if above threshold; else return original target.
-    """
-    unique_choices = choices.dropna().unique().tolist()
-    if not unique_choices:
-        return target
-    match, score = process.extractOne(target, unique_choices)
-    if score >= threshold:
-        return match
-    else:
-        return target
+url_input = st.text_input("📎 Dataset URL (CSV):")
+uploaded_file = st.file_uploader("📁 Or upload a CSV file:", type="csv")
+question = st.text_input("🧠 What is your research question?")
 
-def patch_code_filter_values(code: str, df: pd.DataFrame) -> str:
-    """
-    Scan the generated code for filter strings and replace them with best dataset values.
-    Looks for patterns like df['col'] == 'value' and replaces 'value' with closest match.
-    """
-    pattern = re.compile(r"(df\[['\"](\w+)['\"]\]\s*==\s*['\"]([^'\"]+)['\"])")
+executor = GenericLLMCodeExecutor()
 
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "result" not in st.session_state:
+    st.session_state.result = None
+if "code" not in st.session_state:
+    st.session_state.code = None
+if "explanation" not in st.session_state:
+    st.session_state.explanation = None
 
-    def replacer(match):
-        full_match = match.group(1)
-        col = match.group(2)
-        val = match.group(3)
-
-        if col in df.columns:
-            new_val = find_closest_value(val, df[col])
-            if new_val != val:
-                replaced = f"df['{col}'] == '{new_val}'"
-                print(f"[Info] Replacing filter value '{val}' with closest dataset value '{new_val}' in column '{col}'")
-                return replaced
-        return full_match
-
-
-    patched_code = pattern.sub(replacer, code)
-    return patched_code
-
-def to_jsonable(obj):
-    """
-    Convert pandas Series, DataFrame, and numpy scalars to plain Python objects
-    so they can be passed through json.dumps().
-    """
-    if isinstance(obj, pd.Series):
-        return obj.to_dict()
-    if isinstance(obj, pd.DataFrame):
-        return obj.to_dict(orient="records")
-    if isinstance(obj, np.generic):
-        return obj.item()
-    return obj
-
-class GenericLLMCodeExecutor:
-    def __init__(self, api_key=None, model="gpt-4"):
-        if api_key is None:
-            api_key = os.getenv("OPENAI_API_KEY")
-        self.client = OpenAI(api_key=api_key)
-        self.model = model
-
-    def generate_answer_code(self, df: pd.DataFrame, question: str, max_rows=10):
-        sample_rows = df.head(max_rows).to_dict(orient="records")
-        columns = df.columns.tolist()
-
-        prompt = f"""You are a Python data analyst. You have a pandas DataFrame 'df' with columns:
-
-{columns}
-
-Here are {max_rows} sample rows from 'df':
-{json.dumps(sample_rows, indent=2)}
-
-Write a Python function called `answer_question(df)` that:
-- Uses the pandas DataFrame `df` (full data, not just sample) to answer this question:
-
-\"\"\"{question}\"\"\"
-
-- Returns the answer (string, number, list, or dict).
-- Do NOT include data loading or print statements.
-- ONLY provide the function code without any explanations or text.
-"""
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You write Python functions for data analysis."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0,
-            max_tokens=1200,
-        )
-        code = completion.choices[0].message.content.strip()
-        return code
-
-    def execute_code(self, code: str, df: pd.DataFrame):
-        local_env = {}
-
-        # Preprocess: Try converting date-like columns safely
-        for col in df.columns:
-            if "date" in col.lower():
-                try:
-                    df[col] = pd.to_datetime(df[col], errors='coerce', infer_datetime_format=True)
-                except Exception:
-                    pass
-
-        try:
-            clean = clean_code(code)
-            patched = patch_code_filter_values(clean, df)
-            exec(patched, {"pd": pd, "np": np}, local_env)
-            if "answer_question" not in local_env:
-                return None, "Generated code does not define 'answer_question(df)'."
-
-            result = local_env["answer_question"](df)
-            return result, None
-        except Exception as e:
-            tb = traceback.format_exc()
-            return None, f"Error while executing code: {e}\n{tb}"
-
-
-
-
-    def generate_explanation(self, question: str, answer, code: str):
-        prompt = f"""You are a data analyst.
-
-Question asked:
-{question}
-
-Answer computed:
-{json.dumps(to_jsonable(answer), indent=2)}
-
-Please provide a detailed explanation of the analysis performed to reach this conclusion.
-Include:
-- The specific data columns or features used,
-- How these were analyzed or combined,
-- Any normalization or scoring approach,
-- Why the chosen result is meaningful,
-- Any assumptions or limitations.
-
-Here is the Python code used for the analysis:
-
-{code}
-
-Explain the code's logic and how it supports the answer.
-"""
-        completion = self.client.chat.completions.create(
-            model=self.model,
-            messages=[
-                {"role": "system", "content": "You explain data analysis results clearly and thoroughly."},
-                {"role": "user", "content": prompt}
-            ],
-            temperature=0.4,
-            max_tokens=700,
-        )
-        explanation = completion.choices[0].message.content.strip()
-        return explanation
-
-def main():
-    csv_path = input("Enter path to your dataset (CSV): ").strip()
-    question = input("Enter your question about the dataset: ").strip()
-
+def load_dataset():
     try:
-        df = pd.read_csv(csv_path)
+        if url_input:
+            if "kaggle.com/datasets" in url_input:
+                st.error("Direct Kaggle dataset links are not supported. Please download the CSV manually and upload it.")
+                return None
+            if not url_input.lower().endswith(".csv"):
+                st.warning("URL must point directly to a .csv file (e.g., ending in .csv)")
+                return None
+
+            response = requests.get(url_input)
+            if response.status_code == 200:
+                content_type = response.headers.get("Content-Type", "")
+                if "text/csv" in content_type or url_input.endswith(".csv"):
+                    df = pd.read_csv(StringIO(response.text))
+                    st.success("Dataset loaded from URL successfully!")
+                    return df
+                else:
+                    st.error("The URL did not return a valid CSV file.")
+                    return None
+            else:
+                st.error(f"Failed to download dataset from URL (status code {response.status_code})")
+                return None
+
+        elif uploaded_file:
+            df = pd.read_csv(uploaded_file)
+            st.success("Uploaded dataset loaded successfully!")
+            return df
+        else:
+            st.warning("Please upload a CSV file or provide a dataset URL.")
+            return None
     except Exception as e:
-        print(f"Failed to load dataset: {e}")
-        return
+        st.error(f"Failed to load dataset: {e}")
+        return None
 
-    executor = GenericLLMCodeExecutor()
+if st.button("🚀 Run Analysis"):
+    df = load_dataset()
+    if df is not None and question.strip():
+        st.session_state.df = df
+        st.info(f"Columns detected in dataset: {', '.join(df.columns)}")
+        with st.spinner("Generating answer from data..."):
+            code = executor.generate_answer_code(df, question)
+            st.session_state.code = code
 
-    print("\nGenerating Python code to answer your question...")
-    code = executor.generate_answer_code(df, question)
-    print("\n=== Generated Python function ===\n")
-    print(code)
+            try:
+                answer, error = executor.execute_code(code, df)
+                st.session_state.result = answer
 
-    print("\nExecuting generated code on your dataset...")
-    answer, error = executor.execute_code(code, df)
+                if error:
+                    st.error(f"Code execution error: {error}")
+                elif answer is None:
+                    st.warning("The model could not determine an answer to your question.")
+                else:
+                    st.success("Answer computed!")
+                    explanation = executor.generate_explanation(question, answer, code)
+                    st.session_state.explanation = explanation
 
-    if error:
-        print(f"\nError during code execution:\n{error}")
-        return
+                    st.subheader("✅ Answer:")
+                    st.write(answer)
 
-    print("\n=== Raw Answer from Executed Code ===\n")
-    print(answer)
+                    st.subheader("📊 How was this answer computed?")
+                    st.markdown(explanation)
 
-    print("\nGenerating detailed explanation for the analysis...\n")
-    explanation = executor.generate_explanation(question, answer, code)
-    print(explanation)
+            except Exception as exec_error:
+                st.error(f"Execution failed: {exec_error}")
+    else:
+        st.warning("Please make sure both a dataset and research question are provided.")
 
-if __name__ == "__main__":
-    main()
+if st.session_state.code:
+    with st.expander("🧾 Generated Code"):
+        st.code(st.session_state.code, language="python")
