@@ -9,7 +9,43 @@ from datasets import load_dataset as hf_load_dataset
 st.set_page_config(page_title="Agentic Data Researcher", layout="centered")
 st.title("🔍 Agentic Data Researcher")
 
-st.markdown("Upload a dataset or provide a dataset URL. Then, ask a question you'd like to answer from the data.")
+st.markdown("Interact with the agentic researcher via chat. Upload a dataset or ask questions about the current dataset.")
+
+executor = GenericLLMCodeExecutor()
+
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "dataset_name" not in st.session_state:
+    st.session_state.dataset_name = None
+if "code" not in st.session_state:
+    st.session_state.code = None
+if "explanation" not in st.session_state:
+    st.session_state.explanation = None
+
+executor = GenericLLMCodeExecutor()
+
+if "df" not in st.session_state:
+    st.session_state.df = None
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "dataset_name" not in st.session_state:
+    st.session_state.dataset_name = None
+if "explanation" not in st.session_state:
+    st.session_state.explanation = None
+if "code" not in st.session_state:
+    st.session_state.code = None
+def add_chat(role, message):
+    st.session_state.chat_history.append({"role": role, "message": message})
+
+def reset_context():
+    st.session_state.df = None
+    st.session_state.result = None
+    st.session_state.code = None
+    st.session_state.explanation = None
+    st.session_state.dataset_name = None
+    st.session_state.chat_history = []
 
 url_input = st.text_input("📎 Dataset URL (CSV):")
 uploaded_file = st.file_uploader("📁 Or upload a CSV file:", type="csv")
@@ -32,7 +68,7 @@ def load_dataset():
     FORMULA_PREFIXES = ["=", "+", "-", "@"]
     MAX_ROWS = 100000
     MAX_COLS = 100
-    MAX_FILE_SIZE_MB = 20
+    MAX_FILE_SIZE_MB = 200
     def warn_if_suspicious(df, url=None):
         # Check for suspicious keywords in columns and cell values
         found = False
@@ -169,17 +205,19 @@ def load_dataset():
                 return None
 
         elif uploaded_file:
-            # Check file size before loading
-            uploaded_file.seek(0, os.SEEK_END)
-            file_size_mb = uploaded_file.tell() / (1024 * 1024)
-            uploaded_file.seek(0)
+            # Use uploaded_file.size for file size check (Streamlit provides this attribute)
+            file_size_mb = uploaded_file.size / (1024 * 1024)
             if file_size_mb > MAX_FILE_SIZE_MB:
                 st.warning(f"⚠️ Uploaded file is too large ({file_size_mb:.2f} MB). Max allowed is {MAX_FILE_SIZE_MB} MB.")
                 return None
-            df = pd.read_csv(uploaded_file)
-            st.success("Uploaded dataset loaded successfully!")
-            warn_if_suspicious(df)
-            return df
+            try:
+                df = pd.read_csv(uploaded_file)
+                st.success("Uploaded dataset loaded successfully!")
+                warn_if_suspicious(df)
+                return df
+            except Exception as e:
+                st.error(f"Failed to read uploaded CSV: {e}")
+                return None
         else:
             st.warning("Please upload a CSV file or provide a dataset URL.")
             return None
@@ -210,7 +248,14 @@ if st.button("🚀 Run Analysis"):
                     st.session_state.explanation = explanation
 
                     st.subheader("✅ Answer:")
-                    st.write(answer)
+                    import pandas as pd
+                    import numpy as np
+                    if isinstance(answer, pd.DataFrame):
+                        st.dataframe(answer)
+                    elif isinstance(answer, (np.generic, np.ndarray)):
+                        st.write(answer.item() if hasattr(answer, 'item') else answer.tolist())
+                    else:
+                        st.write(answer)
 
                     st.subheader("📊 How was this answer computed?")
                     st.markdown(explanation)
