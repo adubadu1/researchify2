@@ -1,13 +1,19 @@
 # Researchify 2
+<<<<<<< HEAD
+=======
+
+>>>>>>> 0ae47b1 (Add note: agent currently supports only simple data science tasks)
 
 An agentic web app built with Streamlit, OpenAI, and Kaggle to help nontechnical researchers analyze their datasets.
 
+> **Note:** The agent currently performs only simple data science tasks (e.g., basic analysis, summary statistics, simple visualizations). Advanced analytics and complex modeling are not supported yet.
+
 ## 🧠 How It Works
 
-1. You upload a dataset or provide a link to one.
+1. You upload a dataset or provide a link (including Kaggle links).
 2. You type in a research question that can be answered using the dataset (e.g., *"How many flights were delayed in 2023?"*).
-3. It searches Kaggle using those keywords.
-4. You get a list of real, downloadable datasets that match your research idea.
+3. If a Kaggle link is provided, the app automatically downloads the dataset from Kaggle.
+4. The agent performs data science analysis to answer your question and provides results and explanations.
 
 ## 🚀 Live Demo
 
