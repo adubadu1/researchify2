@@ -11,18 +11,19 @@ A Streamlit web app that uses OpenAI to help you analyze your dataset. Great for
 
 ## 🚀 Live Demo
 
-**Coming soon** (or add your deployment link here if you host it on [Streamlit Cloud](https://streamlit.io/cloud) or [HuggingFace Spaces](https://huggingface.co/spaces))
+**Live on Streamlit Cloud:** [https://researchify2.streamlit.app/](https://researchify2.streamlit.app/)
 
 ## 🛠 Built With
 
 - [Streamlit](https://streamlit.io/)
 - [OpenAI API](https://platform.openai.com/)
 - Python
+- Kaggle API (automatic dataset download from Kaggle links)
 
 ## 📁 Folder Structure
 
 main/
-├── app.py            # Streamlit frontend interface
+├── app.py            # Streamlit frontend interface (now supports Kaggle dataset links)
 ├── researcher.py     # Handles OpenAI API and dataset search logic
 ├── requirements.txt  # Python dependencies (pip install -r requirements.txt)
 ├── Dockerfile        # Containerization instructions for Docker

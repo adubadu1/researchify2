@@ -29,8 +29,50 @@ def load_dataset():
     try:
         if url_input:
             if "kaggle.com/datasets" in url_input:
-                st.error("Direct Kaggle dataset links are not supported. Please download the CSV manually and upload it.")
-                return None
+                st.info("Kaggle dataset link detected. Attempting to download using Kaggle API...")
+                import subprocess
+                import tempfile
+                kaggle_url = url_input
+                # Extract dataset slug from Kaggle URL
+                import re
+                match = re.search(r"kaggle.com/datasets/([^/]+/[^/?#]+)", kaggle_url)
+                if not match:
+                    st.error("Could not parse Kaggle dataset URL. Please provide a valid Kaggle dataset link.")
+                    return None
+                dataset_slug = match.group(1)
+                temp_dir = tempfile.mkdtemp()
+                try:
+                    # Download dataset using Kaggle CLI
+                    result = subprocess.run([
+                        "kaggle", "datasets", "download", "-d", dataset_slug, "-p", temp_dir
+                    ], capture_output=True, text=True)
+                    if result.returncode != 0:
+                        st.error(f"Kaggle download failed: {result.stderr}")
+                        return None
+                    # Find the downloaded file (usually a zip)
+                    import os, zipfile
+                    files = os.listdir(temp_dir)
+                    zip_files = [f for f in files if f.endswith(".zip")]
+                    if not zip_files:
+                        st.error("No zip file found in Kaggle download.")
+                        return None
+                    zip_path = os.path.join(temp_dir, zip_files[0])
+                    with zipfile.ZipFile(zip_path, 'r') as zip_ref:
+                        zip_ref.extractall(temp_dir)
+                    # Find all CSV files and select the largest one (main data)
+                    csv_files = [f for f in os.listdir(temp_dir) if f.endswith('.csv')]
+                    if not csv_files:
+                        st.error("No CSV file found in Kaggle dataset zip.")
+                        return None
+                    # Select the largest CSV file by size
+                    largest_csv = max(csv_files, key=lambda f: os.path.getsize(os.path.join(temp_dir, f)))
+                    csv_path = os.path.join(temp_dir, largest_csv)
+                    df = pd.read_csv(csv_path)
+                    st.success(f"Kaggle dataset '{largest_csv}' loaded successfully!")
+                    return df
+                except Exception as e:
+                    st.error(f"Failed to download or extract Kaggle dataset: {e}")
+                    return None
             if not url_input.lower().endswith(".csv"):
                 st.warning("URL must point directly to a .csv file (e.g., ending in .csv)")
                 return None
@@ -79,7 +121,7 @@ if st.button("🚀 Run Analysis"):
                     st.warning("The model could not determine an answer to your question.")
                 else:
                     st.success("Answer computed!")
-                    explanation = executor.generate_explanation(question, answer, code)
+                    explanation = executor.generate_explanation(question, answer, code, df)
                     st.session_state.explanation = explanation
 
                     st.subheader("✅ Answer:")

@@ -114,7 +114,10 @@ Write a Python function called `answer_question(df)` that:
             tb = traceback.format_exc()
             return None, f"Error while executing code: {e}\n{tb}"
 
-    def generate_explanation(self, question: str, answer, code: str):
+    def generate_explanation(self, question: str, answer, code: str, df: pd.DataFrame = None):
+        dataset_overview = ""
+        if df is not None:
+            dataset_overview = f"\n\nDataset columns: {', '.join(df.columns)}\nSample rows:\n{df.head(3).to_markdown(index=False)}\n"
         prompt = f"""You are a data analyst.
 
 Question asked:
@@ -123,10 +126,12 @@ Question asked:
 Answer computed:
 {json.dumps(answer, indent=2)}
 
+{dataset_overview}
 Please provide a detailed explanation of the analysis performed to reach this conclusion.
 Include:
-- The specific data columns or features used,
-- How these were analyzed or combined,
+- The specific data columns or features used from the dataset,
+- How these columns were analyzed or combined in the code,
+- How the code logic relates to the dataset structure and the research question,
 - Any normalization or scoring approach,
 - Why the chosen result is meaningful,
 - Any assumptions or limitations.
@@ -135,7 +140,7 @@ Here is the Python code used for the analysis:
 
 {code}
 
-Explain the code's logic and how it supports the answer.
+Explain the code's logic, how it interacts with the dataset, and how it supports the answer.
 """
         completion = self.client.chat.completions.create(
             model=self.model,
