@@ -124,6 +124,9 @@ def load_dataset():
                     ds = hf_load_dataset(hf_id)
                     split = max(ds.keys(), key=lambda k: len(ds[k]))
                     df = ds[split].to_pandas()
+                    if df.shape[0] > 10000:
+                        st.warning(f"⚠️ Dataset has {df.shape[0]} rows. Only the first 10,000 rows will be loaded to avoid memory issues.")
+                        df = df.head(10000)
                     st.success(f"Hugging Face dataset '{hf_id}' loaded successfully!")
                     warn_if_suspicious(df, url_input)
                     return df
@@ -137,6 +140,9 @@ def load_dataset():
                     ds = hf_load_dataset(hf_id)
                     split = max(ds.keys(), key=lambda k: len(ds[k]))
                     df = ds[split].to_pandas()
+                    if df.shape[0] > 10000:
+                        st.warning(f"⚠️ Dataset has {df.shape[0]} rows. Only the first 10,000 rows will be loaded to avoid memory issues.")
+                        df = df.head(10000)
                     st.success(f"Hugging Face dataset '{hf_id}' loaded successfully!")
                     warn_if_suspicious(df, url_input)
                     return df
@@ -179,6 +185,9 @@ def load_dataset():
                     largest_csv = max(csv_files, key=lambda f: os.path.getsize(os.path.join(temp_dir, f)))
                     csv_path = os.path.join(temp_dir, largest_csv)
                     df = pd.read_csv(csv_path)
+                    if df.shape[0] > 10000:
+                        st.warning(f"⚠️ Dataset has {df.shape[0]} rows. Only the first 10,000 rows will be loaded to avoid memory issues.")
+                        df = df.head(10000)
                     st.success(f"Kaggle dataset '{largest_csv}' loaded successfully!")
                     warn_if_suspicious(df, url_input)
                     return df
