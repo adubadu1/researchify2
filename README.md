@@ -22,6 +22,7 @@ A goal-driven data science agent built with Streamlit and OpenAI. Designed for v
 
 ## 📁 Folder Structure
 
+```
 main/
 ├── app.py            # Streamlit interface (agentic workflow: question → dataset → analysis)
 ├── researcher.py     # Handles OpenAI API, dataset search, and autonomous analysis
@@ -29,3 +30,4 @@ main/
 ├── Dockerfile        # Containerization instructions for Docker
 ├── .env              # API keys (not included in Git)
 └── README.md         # Project documentation
+```
