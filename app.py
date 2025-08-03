@@ -266,12 +266,19 @@ if st.button("🚀 Run Analysis"):
                     st.warning("The model could not determine an answer to your question.")
                 else:
                     st.success("Answer computed!")
-                    explanation = executor.generate_explanation(question, answer, code, df)
+                    import pandas as pd
+                    import numpy as np
+                    # Safely serialize DataFrame for explanation
+                    if isinstance(answer, pd.DataFrame):
+                        answer_for_explanation = f"DataFrame with shape {answer.shape} and columns: {', '.join(answer.columns)}"
+                    elif isinstance(answer, (np.generic, np.ndarray)):
+                        answer_for_explanation = answer.item() if hasattr(answer, 'item') else str(answer.tolist())
+                    else:
+                        answer_for_explanation = str(answer)
+                    explanation = executor.generate_explanation(question, answer_for_explanation, code, df)
                     st.session_state.explanation = explanation
 
                     st.subheader("✅ Answer:")
-                    import pandas as pd
-                    import numpy as np
                     if isinstance(answer, pd.DataFrame):
                         st.dataframe(answer)
                     elif isinstance(answer, (np.generic, np.ndarray)):
