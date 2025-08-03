@@ -4,6 +4,7 @@ import pandas as pd
 import requests
 from io import StringIO
 from researcher import GenericLLMCodeExecutor
+from datasets import load_dataset as hf_load_dataset
 
 st.set_page_config(page_title="Agentic Data Researcher", layout="centered")
 st.title("🔍 Agentic Data Researcher")
@@ -26,14 +27,92 @@ if "explanation" not in st.session_state:
     st.session_state.explanation = None
 
 def load_dataset():
+    # Safety checks for dataset URL and uploaded files
+    SUSPICIOUS_KEYWORDS = ["jailbreak", "prompt injection", "bypass", "ignore previous", "system: ", "act as", "simulate", "exploit", "malicious"]
+    FORMULA_PREFIXES = ["=", "+", "-", "@"]
+    MAX_ROWS = 100000
+    MAX_COLS = 100
+    MAX_FILE_SIZE_MB = 20
+    def warn_if_suspicious(df, url=None):
+        # Check for suspicious keywords in columns and cell values
+        found = False
+        for col in df.columns:
+            for kw in SUSPICIOUS_KEYWORDS:
+                if kw in str(col).lower():
+                    found = True
+        for col in df.columns:
+            vals = df[col].astype(str).str.lower()
+            for kw in SUSPICIOUS_KEYWORDS:
+                if any(kw in v for v in vals):
+                    found = True
+        if url and any(kw in url.lower() for kw in SUSPICIOUS_KEYWORDS):
+            found = True
+        if found:
+            st.warning("⚠️ This dataset may contain unsafe or offensive jailbreak/prompt injection content. Use caution when interpreting results.")
+        # Formula injection check
+        for col in df.columns:
+            vals = df[col].astype(str)
+            if any(any(vals.str.startswith(prefix)) for prefix in FORMULA_PREFIXES):
+                st.warning("⚠️ This dataset may contain cells that could trigger formulas in spreadsheet software. Avoid exporting sensitive data.")
+                break
+        # Resource exhaustion check
+        if df.shape[0] > MAX_ROWS or df.shape[1] > MAX_COLS:
+            st.warning(f"⚠️ Large dataset detected ({df.shape[0]} rows, {df.shape[1]} columns). This may slow down or crash the app.")
+        # Data type confusion
+        for col in df.columns:
+            if df[col].dtype == object:
+                if df[col].apply(lambda x: isinstance(x, bytes) or '\x00' in str(x)).any():
+                    st.warning(f"⚠️ Column '{col}' contains binary data or null bytes. This may cause errors.")
+        # HTML/script injection
+        import re
+        html_pattern = re.compile(r'<(script|img|iframe|svg|object|embed|a|style|form|input|button|link|meta|base|applet|frame|frameset|marquee|video|audio|canvas|textarea|select|option|map|area|noscript|param|source|track|data|datalist|output|progress|meter|template|picture|portal|slot|summary|details|dialog|menu|menuitem|h1|h2|h3|h4|h5|h6|p|div|span|table|thead|tbody|tfoot|tr|th|td|ul|ol|li|dl|dt|dd|blockquote|pre|code|address|cite|b|i|u|em|strong|small|mark|del|ins|sub|sup|br|hr|wbr|abbr|acronym|bdo|big|center|dfn|kbd|q|rt|ruby|s|samp|tt|var|xmp)[^>]*>', re.IGNORECASE)
+        for col in df.columns:
+            if df[col].astype(str).apply(lambda x: bool(html_pattern.search(x))).any():
+                st.warning(f"⚠️ Column '{col}' contains HTML or script tags. This may be unsafe to render.")
+                break
+        # Path traversal check (for filenames)
+        if url and (".." in url or url.startswith("/") or url.startswith("~")):
+            st.warning("⚠️ Suspicious file path detected in dataset URL. This may be unsafe.")
     try:
         if url_input:
+            # Hugging Face dataset support
+            if "huggingface.co/datasets/" in url_input:
+                st.info("Hugging Face dataset link detected. Attempting to download using datasets library...")
+                import re
+                match = re.search(r"huggingface.co/datasets/([\w\-]+/[\w\-]+)", url_input)
+                if not match:
+                    st.error("Could not parse Hugging Face dataset URL. Please provide a valid link.")
+                    return None
+                hf_id = match.group(1)
+                try:
+                    ds = hf_load_dataset(hf_id)
+                    split = max(ds.keys(), key=lambda k: len(ds[k]))
+                    df = ds[split].to_pandas()
+                    st.success(f"Hugging Face dataset '{hf_id}' loaded successfully!")
+                    warn_if_suspicious(df, url_input)
+                    return df
+                except Exception as e:
+                    st.error(f"Failed to download or load Hugging Face dataset: {e}")
+                    return None
+            # If user provides a Hugging Face dataset ID directly
+            if url_input.startswith("hf:"):
+                hf_id = url_input[3:]
+                try:
+                    ds = hf_load_dataset(hf_id)
+                    split = max(ds.keys(), key=lambda k: len(ds[k]))
+                    df = ds[split].to_pandas()
+                    st.success(f"Hugging Face dataset '{hf_id}' loaded successfully!")
+                    warn_if_suspicious(df, url_input)
+                    return df
+                except Exception as e:
+                    st.error(f"Failed to download or load Hugging Face dataset: {e}")
+                    return None
+            # Kaggle dataset support
             if "kaggle.com/datasets" in url_input:
                 st.info("Kaggle dataset link detected. Attempting to download using Kaggle API...")
                 import subprocess
                 import tempfile
                 kaggle_url = url_input
-                # Extract dataset slug from Kaggle URL
                 import re
                 match = re.search(r"kaggle.com/datasets/([^/]+/[^/?#]+)", kaggle_url)
                 if not match:
@@ -42,14 +121,12 @@ def load_dataset():
                 dataset_slug = match.group(1)
                 temp_dir = tempfile.mkdtemp()
                 try:
-                    # Download dataset using Kaggle CLI
                     result = subprocess.run([
                         "kaggle", "datasets", "download", "-d", dataset_slug, "-p", temp_dir
                     ], capture_output=True, text=True)
                     if result.returncode != 0:
                         st.error(f"Kaggle download failed: {result.stderr}")
                         return None
-                    # Find the downloaded file (usually a zip)
                     import os, zipfile
                     files = os.listdir(temp_dir)
                     zip_files = [f for f in files if f.endswith(".zip")]
@@ -59,16 +136,15 @@ def load_dataset():
                     zip_path = os.path.join(temp_dir, zip_files[0])
                     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
                         zip_ref.extractall(temp_dir)
-                    # Find all CSV files and select the largest one (main data)
                     csv_files = [f for f in os.listdir(temp_dir) if f.endswith('.csv')]
                     if not csv_files:
                         st.error("No CSV file found in Kaggle dataset zip.")
                         return None
-                    # Select the largest CSV file by size
                     largest_csv = max(csv_files, key=lambda f: os.path.getsize(os.path.join(temp_dir, f)))
                     csv_path = os.path.join(temp_dir, largest_csv)
                     df = pd.read_csv(csv_path)
                     st.success(f"Kaggle dataset '{largest_csv}' loaded successfully!")
+                    warn_if_suspicious(df, url_input)
                     return df
                 except Exception as e:
                     st.error(f"Failed to download or extract Kaggle dataset: {e}")
@@ -83,6 +159,7 @@ def load_dataset():
                 if "text/csv" in content_type or url_input.endswith(".csv"):
                     df = pd.read_csv(StringIO(response.text))
                     st.success("Dataset loaded from URL successfully!")
+                    warn_if_suspicious(df, url_input)
                     return df
                 else:
                     st.error("The URL did not return a valid CSV file.")
@@ -92,8 +169,16 @@ def load_dataset():
                 return None
 
         elif uploaded_file:
+            # Check file size before loading
+            uploaded_file.seek(0, os.SEEK_END)
+            file_size_mb = uploaded_file.tell() / (1024 * 1024)
+            uploaded_file.seek(0)
+            if file_size_mb > MAX_FILE_SIZE_MB:
+                st.warning(f"⚠️ Uploaded file is too large ({file_size_mb:.2f} MB). Max allowed is {MAX_FILE_SIZE_MB} MB.")
+                return None
             df = pd.read_csv(uploaded_file)
             st.success("Uploaded dataset loaded successfully!")
+            warn_if_suspicious(df)
             return df
         else:
             st.warning("Please upload a CSV file or provide a dataset URL.")

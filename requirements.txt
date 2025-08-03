@@ -1,8 +1,10 @@
+thefuzz
 streamlit
 openai
 pandas
 numpy
 python-dotenv
-thefuzz
 kaggle
 tabulate
+datasets
+thefuzz
