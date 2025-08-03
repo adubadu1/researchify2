@@ -1,8 +1,4 @@
 # Researchify 2
-<<<<<<< HEAD
-=======
-
->>>>>>> 0ae47b1 (Add note: agent currently supports only simple data science tasks)
 
 An agentic web app built with Streamlit, OpenAI, and Kaggle to help nontechnical researchers analyze their datasets.
 
