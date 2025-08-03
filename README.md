@@ -1,4 +1,4 @@
-# Researchify2
+# Researchify 2
 
 An agentic web app built with Streamlit, OpenAI, and Kaggle to help nontechnical researchers analyze their datasets.
 
