@@ -1,0 +1,10 @@
+.env
+*.env
+__pycache__/
+*.pyc
+*.pyo
+*.zip
+*.sqlite3
+.ipynb_checkpoints/
+.vscode/
+.venv/
