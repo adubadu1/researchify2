@@ -23,19 +23,6 @@ if "code" not in st.session_state:
     st.session_state.code = None
 if "explanation" not in st.session_state:
     st.session_state.explanation = None
-
-executor = GenericLLMCodeExecutor()
-
-if "df" not in st.session_state:
-    st.session_state.df = None
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if "dataset_name" not in st.session_state:
-    st.session_state.dataset_name = None
-if "explanation" not in st.session_state:
-    st.session_state.explanation = None
-if "code" not in st.session_state:
-    st.session_state.code = None
 def add_chat(role, message):
     st.session_state.chat_history.append({"role": role, "message": message})
 
