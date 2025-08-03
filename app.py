@@ -275,7 +275,9 @@ if st.button("🚀 Run Analysis"):
                         answer_for_explanation = answer.item() if hasattr(answer, 'item') else str(answer.tolist())
                     else:
                         answer_for_explanation = str(answer)
-                    explanation = executor.generate_explanation(question, answer_for_explanation, code, df)
+                    # Always ask for a non-technical, intuitive explanation of the result only
+                    explanation_prompt = f"Explain the result above in a way that's intuitive to non-technical people. Do not explain the code, only the result."
+                    explanation = executor.generate_explanation(explanation_prompt, answer_for_explanation, code, df)
                     st.session_state.explanation = explanation
 
                     st.subheader("✅ Answer:")
