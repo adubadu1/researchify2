@@ -288,7 +288,7 @@ if st.button("🚀 Run Analysis"):
                     else:
                         st.write(answer)
 
-                    st.subheader("📊 How was this answer computed?")
+                    st.subheader("📊 Explanation of result")
                     st.markdown(explanation)
 
             except Exception as exec_error:
