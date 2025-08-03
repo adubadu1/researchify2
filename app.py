@@ -97,6 +97,23 @@ def load_dataset():
         if url and (".." in url or url.startswith("/") or url.startswith("~")):
             st.warning("⚠️ Suspicious file path detected in dataset URL. This may be unsafe.")
     try:
+        # Helper to check row count before loading full CSV
+        def is_csv_too_large(file_like, max_rows=100000):
+            try:
+                # Use iterator to count lines efficiently
+                import csv
+                if hasattr(file_like, 'read'):
+                    file_like.seek(0)
+                    reader = csv.reader(file_like)
+                    count = sum(1 for _ in reader)
+                    file_like.seek(0)
+                else:
+                    with open(file_like, 'r') as f:
+                        count = sum(1 for _ in f)
+                return count > max_rows
+            except Exception:
+                return False
+
         if url_input:
             # Hugging Face dataset support
             if "huggingface.co/datasets/" in url_input:
@@ -189,7 +206,12 @@ def load_dataset():
             if response.status_code == 200:
                 content_type = response.headers.get("Content-Type", "")
                 if "text/csv" in content_type or url_input.endswith(".csv"):
-                    df = pd.read_csv(StringIO(response.text))
+                    csv_content = StringIO(response.text)
+                    # Check if too large before loading
+                    if is_csv_too_large(csv_content, MAX_ROWS):
+                        st.warning(f"⚠️ CSV file is too large (>{MAX_ROWS} rows). Please use a smaller file.")
+                        return None
+                    df = pd.read_csv(csv_content)
                     st.success("Dataset loaded from URL successfully!")
                     warn_if_suspicious(df, url_input)
                     return df
@@ -205,6 +227,10 @@ def load_dataset():
             file_size_mb = uploaded_file.size / (1024 * 1024)
             if file_size_mb > MAX_FILE_SIZE_MB:
                 st.warning(f"⚠️ Uploaded file is too large ({file_size_mb:.2f} MB). Max allowed is {MAX_FILE_SIZE_MB} MB.")
+                return None
+            # Check row count before loading
+            if is_csv_too_large(uploaded_file, MAX_ROWS):
+                st.warning(f"⚠️ Uploaded CSV file is too large (>{MAX_ROWS} rows). Please use a smaller file.")
                 return None
             try:
                 df = pd.read_csv(uploaded_file)
