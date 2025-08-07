@@ -2,6 +2,8 @@ import os
 import re
 import json
 import traceback
+import subprocess
+import sys
 import pandas as pd
 import numpy as np
 from dotenv import load_dotenv
@@ -9,6 +11,219 @@ from openai import OpenAI
 from thefuzz import process
 
 load_dotenv()
+
+def auto_install_package(package_name):
+    """
+    Automatically install a package if it's not available.
+    """
+    try:
+        __import__(package_name)
+        return True
+    except ImportError:
+        try:
+            print(f"Installing missing package: {package_name}")
+            subprocess.check_call([sys.executable, "-m", "pip", "install", package_name])
+            return True
+        except subprocess.CalledProcessError:
+            print(f"Failed to install package: {package_name}")
+            return False
+
+def patch_imports_in_code(code):
+    """
+    Patch import statements in code to handle package installation.
+    """
+    lines = code.split('\n')
+    patched_lines = []
+    
+    package_mappings = {
+        'sklearn': 'scikit-learn',
+        'cv2': 'opencv-python',
+        'PIL': 'Pillow',
+        'skimage': 'scikit-image'
+    }
+    
+    for line in lines:
+        original_line = line
+        stripped = line.strip()
+        
+        # Handle "import sklearn" or "from sklearn import ..."
+        if stripped.startswith('import sklearn') or stripped.startswith('from sklearn'):
+            patched_lines.append(f"""
+try:
+    {original_line}
+except ImportError:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "scikit-learn"])
+    {original_line}""")
+        # Handle other common packages
+        elif any(f'import {pkg}' in stripped or f'from {pkg}' in stripped for pkg in package_mappings.keys()):
+            for pkg, real_name in package_mappings.items():
+                if f'import {pkg}' in stripped or f'from {pkg}' in stripped:
+                    patched_lines.append(f"""
+try:
+    {original_line}
+except ImportError:
+    import subprocess
+    import sys
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "{real_name}"])
+    {original_line}""")
+                    break
+            else:
+                patched_lines.append(original_line)
+        else:
+            patched_lines.append(original_line)
+    
+    return '\n'.join(patched_lines)
+
+def smart_import(module_name, package_name=None):
+    """
+    Dynamically import a module, installing the package if needed.
+    """
+    if package_name is None:
+        package_name = module_name
+    
+    try:
+        return __import__(module_name)
+    except ImportError:
+        if auto_install_package(package_name):
+            try:
+                return __import__(module_name)
+            except ImportError:
+                return None
+        return None
+
+def create_dynamic_globals():
+    """
+    Create a globals dictionary with dynamic importing capabilities.
+    """
+    # Common package mappings
+    package_mappings = {
+        'sklearn': 'scikit-learn',
+        'cv2': 'opencv-python',
+        'PIL': 'Pillow',
+        'skimage': 'scikit-image',
+        'seaborn': 'seaborn',
+        'matplotlib': 'matplotlib',
+        'plotly': 'plotly',
+        'scipy': 'scipy'
+    }
+    
+    # Pre-install common packages that might be needed
+    def ensure_package_available(module_name, package_name=None):
+        if package_name is None:
+            package_name = package_mappings.get(module_name, module_name)
+        
+        try:
+            return __import__(module_name)
+        except ImportError:
+            if auto_install_package(package_name):
+                try:
+                    return __import__(module_name)
+                except ImportError:
+                    return None
+            return None
+    
+    # Base globals with pandas and numpy
+    globals_dict = {
+        "pd": pd,
+        "np": np,
+        "__builtins__": __builtins__,
+    }
+    
+    # Pre-load common statistical functions
+    try:
+        from statsmodels.tsa.stattools import adfuller, kpss
+        from statsmodels.tsa.seasonal import seasonal_decompose
+        globals_dict.update({
+            "adfuller": adfuller,
+            "kpss": kpss,
+            "seasonal_decompose": seasonal_decompose
+        })
+    except ImportError:
+        # These will be handled by the dynamic importer
+        pass
+    
+    try:
+        import scipy.stats as stats
+        globals_dict["stats"] = stats
+    except ImportError:
+        pass
+    
+    # Pre-load sklearn if available or install it
+    sklearn_module = ensure_package_available('sklearn', 'scikit-learn')
+    if sklearn_module:
+        globals_dict["sklearn"] = sklearn_module
+        # Also add common sklearn submodules
+        try:
+            from sklearn.model_selection import train_test_split
+            from sklearn.linear_model import LinearRegression
+            from sklearn.ensemble import RandomForestRegressor
+            from sklearn.metrics import mean_squared_error, r2_score
+            globals_dict.update({
+                "train_test_split": train_test_split,
+                "LinearRegression": LinearRegression,
+                "RandomForestRegressor": RandomForestRegressor,
+                "mean_squared_error": mean_squared_error,
+                "r2_score": r2_score
+            })
+        except ImportError:
+            pass
+    
+    class DynamicImporter:
+        def __getitem__(self, name):
+            # Handle special statistical functions
+            if name == 'adfuller':
+                if auto_install_package('statsmodels'):
+                    from statsmodels.tsa.stattools import adfuller
+                    return adfuller
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'kpss':
+                if auto_install_package('statsmodels'):
+                    from statsmodels.tsa.stattools import kpss
+                    return kpss
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'seasonal_decompose':
+                if auto_install_package('statsmodels'):
+                    from statsmodels.tsa.seasonal import seasonal_decompose
+                    return seasonal_decompose
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'stats':
+                if auto_install_package('scipy'):
+                    import scipy.stats as stats
+                    return stats
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'sklearn':
+                if auto_install_package('scikit-learn'):
+                    import sklearn
+                    return sklearn
+                raise ImportError(f"Cannot import {name}")
+            
+            # Try direct import first
+            module = ensure_package_available(name)
+            if module:
+                return module
+            
+            raise NameError(f"name '{name}' is not defined")
+    
+    # Add dynamic importer for missing names
+    class SmartGlobals(dict):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.importer = DynamicImporter()
+        
+        def __getitem__(self, key):
+            try:
+                return super().__getitem__(key)
+            except KeyError:
+                try:
+                    value = self.importer[key]
+                    self[key] = value  # Cache for future use
+                    return value
+                except (ImportError, NameError):
+                    raise NameError(f"name '{key}' is not defined")
+    
+    return SmartGlobals(globals_dict)
 
 def clean_code(code: str) -> str:
     """
@@ -104,7 +319,13 @@ Write a Python function called `answer_question(df)` that:
         try:
             clean = clean_code(code)
             patched = patch_code_filter_values(clean, df)
-            exec(patched, {"pd": pd, "np": np}, local_env)
+            # Also patch import statements
+            import_patched = patch_imports_in_code(patched)
+            
+            # Use dynamic globals that auto-install packages
+            smart_globals = create_dynamic_globals()
+            
+            exec(import_patched, smart_globals, local_env)
             if "answer_question" not in local_env:
                 return None, "Generated code does not define 'answer_question(df)'."
 

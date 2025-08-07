@@ -1,0 +1,22 @@
+# Git files
+.git
+.gitignore
+
+# Large files
+bfg.jar
+
+# Temporary files
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.Python
+.pytest_cache
+
+# IDE files
+.vscode
+.idea
+
+# OS files
+.DS_Store
+Thumbs.db

@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  researchify2:
+    build: .
+    ports:
+      - "8501:8501"
+    env_file:
+      - .env
+    # Alternative: Mount .env as volume (more secure)
+    # volumes:
+    #   - ./.env:/app/.env:ro
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
