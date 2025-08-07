@@ -5,6 +5,13 @@ import requests
 from io import StringIO
 from researcher import GenericLLMCodeExecutor
 from datasets import load_dataset as hf_load_dataset
+import matplotlib
+import matplotlib.pyplot as plt
+import io
+import base64
+
+# Configure matplotlib for Streamlit
+matplotlib.use('Agg')  # Use non-GUI backend
 
 st.set_page_config(page_title="Agentic Data Researcher", layout="centered")
 st.title("🔍 Agentic Data Researcher")
@@ -266,27 +273,51 @@ if st.button("🚀 Run Analysis"):
                     st.warning("The model could not determine an answer to your question.")
                 else:
                     st.success("Answer computed!")
+                    
+                    # Handle different types of results
                     import pandas as pd
                     import numpy as np
-                    # Safely serialize DataFrame for explanation
+                    
+                    # Check if there are any matplotlib figures to display
+                    if plt.get_fignums():
+                        st.subheader("📊 Visualization:")
+                        for fignum in plt.get_fignums():
+                            fig = plt.figure(fignum)
+                            st.pyplot(fig)
+                        plt.close('all')  # Clean up figures
+                    
+                    # Display the main result
+                    st.subheader("✅ Answer:")
                     if isinstance(answer, pd.DataFrame):
+                        st.dataframe(answer)
                         answer_for_explanation = f"DataFrame with shape {answer.shape} and columns: {', '.join(answer.columns)}"
                     elif isinstance(answer, (np.generic, np.ndarray)):
-                        answer_for_explanation = answer.item() if hasattr(answer, 'item') else str(answer.tolist())
+                        result_value = answer.item() if hasattr(answer, 'item') else answer.tolist()
+                        st.write(result_value)
+                        answer_for_explanation = str(result_value)
+                    elif hasattr(answer, '_repr_html_'):  # Handle plotly figures
+                        try:
+                            st.plotly_chart(answer, use_container_width=True)
+                            answer_for_explanation = "Interactive visualization created"
+                        except:
+                            st.write(answer)
+                            answer_for_explanation = str(answer)
+                    elif str(type(answer)).find('seaborn') != -1 or str(type(answer)).find('matplotlib') != -1:
+                        # Handle seaborn/matplotlib objects
+                        try:
+                            st.pyplot(answer.figure if hasattr(answer, 'figure') else plt.gcf())
+                            answer_for_explanation = "Visualization created"
+                        except:
+                            st.write(answer)
+                            answer_for_explanation = str(answer)
                     else:
+                        st.write(answer)
                         answer_for_explanation = str(answer)
+                    
                     # Always ask for a non-technical, intuitive explanation of the result only
                     explanation_prompt = f"Explain the result above in a way that's intuitive to non-technical people. Do not explain the code, only the result."
                     explanation = executor.generate_explanation(explanation_prompt, answer_for_explanation, code, df)
                     st.session_state.explanation = explanation
-
-                    st.subheader("✅ Answer:")
-                    if isinstance(answer, pd.DataFrame):
-                        st.dataframe(answer)
-                    elif isinstance(answer, (np.generic, np.ndarray)):
-                        st.write(answer.item() if hasattr(answer, 'item') else answer.tolist())
-                    else:
-                        st.write(answer)
 
                     st.subheader("📊 Explanation of result")
                     st.markdown(explanation)
