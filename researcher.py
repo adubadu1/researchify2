@@ -543,6 +543,14 @@ def create_dynamic_globals():
         except ImportError:
             pass
     
+    # Pre-load datetime handling
+    try:
+        import datetime
+        globals_dict["datetime"] = datetime
+        globals_dict["timedelta"] = datetime.timedelta
+    except ImportError:
+        pass
+    
     class DynamicImporter:
         def __getitem__(self, name):
             # Handle special statistical functions
@@ -641,6 +649,42 @@ def create_dynamic_globals():
                 if success:
                     import plotly.graph_objects as go
                     return go
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'datetime':
+                # Handle datetime module
+                import datetime
+                return datetime
+            elif name == 'timedelta':
+                # Handle timedelta class
+                import datetime
+                return datetime.timedelta
+            elif name == 'train_test_split':
+                # Handle sklearn train_test_split
+                success, _ = safe_auto_install_package('scikit-learn')
+                if success:
+                    from sklearn.model_selection import train_test_split
+                    return train_test_split
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'LinearRegression':
+                # Handle sklearn LinearRegression
+                success, _ = safe_auto_install_package('scikit-learn')
+                if success:
+                    from sklearn.linear_model import LinearRegression
+                    return LinearRegression
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'mean_squared_error':
+                # Handle sklearn mean_squared_error
+                success, _ = safe_auto_install_package('scikit-learn')
+                if success:
+                    from sklearn.metrics import mean_squared_error
+                    return mean_squared_error
+                raise ImportError(f"Cannot import {name}")
+            elif name == 'r2_score':
+                # Handle sklearn r2_score
+                success, _ = safe_auto_install_package('scikit-learn')
+                if success:
+                    from sklearn.metrics import r2_score
+                    return r2_score
                 raise ImportError(f"Cannot import {name}")
             
             # ABSOLUTE WILDCARD: Try to install ANY package safely
@@ -831,11 +875,28 @@ DATA HANDLING GUIDELINES:
 - Check array sizes before indexing (e.g., if len(array) > 0 before accessing array[0])
 - Use .iloc[] for positional indexing when column names are unclear
 
+DATE HANDLING GUIDELINES:
+- When working with dates, always use pandas.to_datetime() to convert strings to datetime objects
+- For date arithmetic, use pandas.Timedelta or datetime.timedelta for adding/subtracting days
+- When predicting future dates: last_date + pandas.Timedelta(days=100) or last_date + datetime.timedelta(days=100)
+- Convert datetime to ordinal for ML models: date.toordinal() method
+- Always handle date parsing errors with try/except blocks
+- For stock prediction, parse the first column as dates if it contains date-like strings
+
+MACHINE LEARNING GUIDELINES:
+- For time series prediction, convert dates to ordinal numbers for model input
+- Use train_test_split for proper data splitting
+- Always include model evaluation metrics (R², MSE, etc.)
+- Handle feature scaling if necessary with StandardScaler
+- For stock prediction, consider using multiple features if available (open, high, low, volume)
+
 IMPORT GUIDELINES:
 - For FFT: Use "import numpy" then "numpy.fft.fft()" for clarity
 - For scientific computing: Use "import numpy" then "numpy.array()"
 - For plotting: Use "import matplotlib.pyplot" then "matplotlib.pyplot.plot()"
 - For statistics: Use "import scipy.stats" then "scipy.stats.norm()"
+- For date handling: Use "import pandas" then "pandas.to_datetime()" and "pandas.Timedelta()"
+- For machine learning: Use "from sklearn.model_selection import train_test_split"
 - Avoid from-imports when possible (e.g., avoid "from numpy import fft")
 - Use explicit imports to prevent naming conflicts
 
