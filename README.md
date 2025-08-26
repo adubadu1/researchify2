@@ -6,7 +6,7 @@ An enterprise-grade agentic web app built with Streamlit, OpenAI, Kaggle, and Hu
 
 ## 🌟 **Dynamic Globals System with Advanced Analytics**
 
-Researchify 2 now features **enterprise-grade universal package management** with **sophisticated signal processing capabilities**:
+Researchify 2 now features **enterprise-grade universal package management** with **sophisticated signal processing capabilities** and **natural, conversational explanations**:
 
 ### **🎯 Revolutionary Execution Engine:**
 - **Dynamic Package Resolution** - Automatically provides required libraries during code execution
@@ -16,6 +16,7 @@ Researchify 2 now features **enterprise-grade universal package management** wit
 - **Real-time PyPI Integration** - Validates and installs packages safely
 - **Zero Configuration** - No need to update requirements.txt for new packages
 - **Streamlined Architecture** - Simplified execution without import patching
+- **Conversational Explanations** - Results are explained in natural, intuitive language that connects the answer to your question
 
 ### **🔬 Advanced Signal Processing Capabilities:**
 - ✅ **FFT Analysis** - Built-in Fast Fourier Transform with proper frequency domain plotting
@@ -51,11 +52,12 @@ Researchify 2 now features **enterprise-grade universal package management** wit
 3. **Automatic Package Resolution** - System detects required libraries and installs them safely
 4. **AI Code Generation** - GPT-4 generates appropriate analysis code  
 5. **Secure Execution** - Code runs in sandboxed environment with installed packages
-6. **Instant Results** - Get analysis, visualizations, and insights immediately
+6. **Instant Results & Explanations** - Get analysis, visualizations, and clear, conversational explanations that relate the result to your question
 
 ### 🔧 **Advanced Dynamic Execution Engine**
 
-The revolutionary execution system now handles sophisticated data science workflows:
+
+The revolutionary execution system now handles sophisticated data science workflows and provides natural, step-by-step explanations for every result:
 
 - **🎯 Smart Import Resolution:** Automatic package detection and installation
 - **🔄 Dynamic Globals System:** SmartGlobals with caching and namespace management
@@ -113,7 +115,7 @@ If any safety issue is detected, the app will display a warning and advise cauti
 
 ## 🚀 Live Demo
 
-**Live on Streamlit Cloud:** [https://researchify2.streamlit.app/](https://researchify2.streamlit.app/)
+**Live on Streamlit Cloud:** [https://researchify2-1.streamlit.app/](https://researchify2-1.streamlit.app/)
 
 ## 🛠 Built With
 
