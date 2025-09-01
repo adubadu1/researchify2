@@ -1,12 +1,10 @@
 # Researchify 2
 
-An enterprise-grade agentic web app built with Streamlit, OpenAI, Kaggle, and Hugging Face to help researchers analyze datasets with **universal automatic library installation** and **advanced signal processing capabilities**.
-
-> **🚀 LATEST:** Revolutionary **Dynamic Globals System** with **FFT Analysis** - Ask any data science question including sophisticated signal processing and the system automatically provides required capabilities safely!
+An agentic web app built with Streamlit, OpenAI, Kaggle, and Hugging Face to help researchers analyze datasets with **universal automatic library installation**.
 
 ## 🌟 **Dynamic Globals System with Advanced Analytics**
 
-Researchify 2 now features **enterprise-grade universal package management** with **sophisticated signal processing capabilities** and **natural, conversational explanations**:
+Researchify 2 now features **universal package management** with **natural, conversational explanations**:
 
 ### **🎯 Revolutionary Execution Engine:**
 - **Dynamic Package Resolution** - Automatically provides required libraries during code execution
@@ -18,13 +16,6 @@ Researchify 2 now features **enterprise-grade universal package management** wit
 - **Streamlined Architecture** - Simplified execution without import patching
 - **Conversational Explanations** - Results are explained in natural, intuitive language that connects the answer to your question
 
-### **🔬 Advanced Signal Processing Capabilities:**
-- ✅ **FFT Analysis** - Built-in Fast Fourier Transform with proper frequency domain plotting
-- ✅ **Frequency Domain Visualization** - Correct x-axis (frequencies) vs y-axis (amplitudes) plotting
-- ✅ **Statistical Distributions** - CDF, percentile analysis with shading
-- ✅ **Time Series Analysis** - ARIMA, seasonal decomposition, stationarity tests
-- ✅ **Pre-loaded Scientific Functions** - numpy.fft, scipy.stats, statsmodels ready
-- ✅ **Intelligent Type Conversion** - NumPy, Pandas, PyTorch types to native Python
 
 ### **🔒 Enterprise Security Features:**
 - ✅ **400+ Trusted Package Whitelist** (pandas, sklearn, tensorflow, etc.)
@@ -48,7 +39,7 @@ Researchify 2 now features **enterprise-grade universal package management** wit
 ## 🧠 How It Works
 
 1. **Upload or Link Dataset** - CSV files, Kaggle datasets, or Hugging Face datasets
-2. **Ask Any Question** - From basic stats to advanced ML: *"Build a neural network to predict stock prices"*
+2. **Ask Any Question** - From stats to ML: *"Build a neural network to predict stock prices"*
 3. **Automatic Package Resolution** - System detects required libraries and installs them safely
 4. **AI Code Generation** - GPT-4 generates appropriate analysis code  
 5. **Secure Execution** - Code runs in sandboxed environment with installed packages
